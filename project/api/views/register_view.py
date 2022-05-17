@@ -1,10 +1,8 @@
-from random import randint
-
 from django.contrib.sites.shortcuts import get_current_site
-from rest_framework import generics, response, status, exceptions
+from rest_framework import generics, response, status
 
 from ..serializers import register_serializer
-from ..utils import Utils
+from lib.utils import Util
 
 
 class RegisterApiView(generics.CreateAPIView):
@@ -14,26 +12,34 @@ class RegisterApiView(generics.CreateAPIView):
 
     def post(self, request, *args, **kwargs):
         serializer = self.serializer_class(data=request.data)
-        otp = randint(10000, 99999)
-        url = f'{get_current_site(request).domain}/api/v1/users/verify-email?otp={otp}/'
+        otp = Util.generate_otp()
 
         # Send OTP to the serializer to save
         serializer.context['otp'] = otp
 
         if serializer.is_valid():
+            user_email = request.data['email']
+
+            # Code to encode email address
+            encoded = Util.encode_text(user_email)
+
+            url = f'{get_current_site(request).domain}/api/v1/auth/verify?encoded_email={encoded}/'
             email_data = {
-                'subject': 'Registration Complete',
-                'body': f"You have successfully registered on Recycle Pay."
-                        f" Please click {url} to verify your account",
-                'receiver': request.data['email']
+                'email_subject':
+                    'Recycle-Pay | Registration Complete',
+                'email_body':
+                    f"You have successfully registered on the Recycle-Pay Platform."
+                    f" Please click <a href={url}><b>this</b></a> {url} to verify your account",
+                'to_email': [user_email, ]
             }
 
             try:
-                Utils.send_email(email_data)
+                Util.send_email(email_data)
                 serializer.save()
                 return response.Response({'message': 'Success',
                                           'data': serializer.data}, status=status.HTTP_201_CREATED)
             except Exception as err:
-                raise exceptions.ValidationError({'message': err})
+                return response.Response({'message!': str(err)}, status=status.HTTP_400_BAD_REQUEST)
         else:
-            raise exceptions.ValidationError(serializer.errors)
+            return response.Response({'message!': serializer.errors},
+                                     status=status.HTTP_400_BAD_REQUEST)
