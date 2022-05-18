@@ -1,7 +1,7 @@
 from django.contrib.sites.shortcuts import get_current_site
 from rest_framework import generics, response, status
 
-from ..serializers import register_serializer
+from api.serializers import register_serializer
 from lib.utils import Util
 
 
@@ -21,7 +21,7 @@ class RegisterApiView(generics.CreateAPIView):
             user_email = request.data['email']
 
             # Code to encode email address
-            encoded = Util.encode_text(user_email)
+            encoded = Util.encode_email(user_email)
 
             url = f'{get_current_site(request).domain}/api/v1/auth/verify?encoded_email={encoded}/'
             email_data = {
